@@ -1,0 +1,78 @@
+#include <Arduino.h>
+//////////////////////////////////////////
+// Dos LEDs con FreeRTOS
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+#define LED1 2
+#define LED2 4
+
+void task1(void *pvParameters);
+void task2(void *pvParameters);
+
+void setup(){
+    Serial.begin(9600);
+    pinMode (LED1, OUTPUT);
+    pinMode (LED2, OUTPUT);
+    //Se crean las tareas
+    xTaskCreatePinnedToCore(
+    task1
+    ,  "LED1"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    task2
+    ,  "LED2"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+void task1(void *pvParameters)
+{
+    (void) pvParameters;
+    while (true)
+    {
+    Serial.println("LED1 ON");
+    digitalWrite(LED1,HIGH);
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    Serial.println("LED1 OFF");
+    digitalWrite(LED1,LOW);
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    }
+    
+}
+
+
+void task2(void *pvParameters)
+{
+    (void) pvParameters;
+    while (true)
+    {
+    digitalWrite(LED2,HIGH);
+    Serial.println("LED2 ON");
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    digitalWrite(LED2,LOW);
+    Serial.println("LED1 OFF");
+    vTaskDelay(200 / portTICK_PERIOD_MS);
+    }
+    
+}
+
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}

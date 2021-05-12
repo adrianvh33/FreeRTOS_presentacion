@@ -1,0 +1,53 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// Dos LEDs SIN freeRTOS
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+#define LED1 2
+#define LED2 4
+
+void setup()
+{
+  Serial.begin(9600);
+  pinMode (LED1, OUTPUT);
+  pinMode (LED2, OUTPUT);
+}
+
+
+// un solo LED
+
+// void loop()
+// {
+//   Serial.println("LED1 ON");
+//   digitalWrite(LED1,HIGH);
+//   vTaskDelay(1000 / portTICK_PERIOD_MS);
+//   Serial.println("LED1 OFF");
+//   digitalWrite(LED1,LOW);
+//   vTaskDelay(1000 / portTICK_PERIOD_MS);
+// }
+
+// dos LEDs
+
+// void loop()
+// {
+//   digitalWrite(LED1,1);
+//   Serial.println("LED1 ON");
+//   vTaskDelay(500 / portTICK_PERIOD_MS);
+//   digitalWrite(LED2,1);
+//   Serial.println("LED2 ON");
+//   vTaskDelay(500 / portTICK_PERIOD_MS);
+
+//   digitalWrite(LED1,0);
+//   Serial.println("LED1 OFF");
+//   vTaskDelay(500 / portTICK_PERIOD_MS);  
+//   digitalWrite(LED2,0);
+//   Serial.println("LED2 OFF");
+//   vTaskDelay(500 / portTICK_PERIOD_MS);
+// }
+

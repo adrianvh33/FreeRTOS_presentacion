@@ -1,0 +1,67 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// TaskNotifications
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+static TaskHandle_t receiverHandler = NULL;
+static void sender(void *pvParameters);
+static void receiver(void *pvParameters);
+
+void setup(){
+    //Se crean las tareas
+    Serial.begin(9600);
+    xTaskCreatePinnedToCore(
+    receiver
+    ,  "task2"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  &receiverHandler  //  Se entrega el TaskNotifications
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    sender
+    ,  "task1"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+static void sender(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    xTaskNotifyGive(receiverHandler);
+    xTaskNotifyGive(receiverHandler);
+    xTaskNotifyGive(receiverHandler);
+    xTaskNotifyGive(receiverHandler);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+static void receiver(void *pvParameters)
+{
+  (void) pvParameters;
+  int notificationValue;
+  while (true)
+  {
+    notificationValue = ulTaskNotifyTake(pdFALSE, portMAX_DELAY); //  pdTRUE permite recibir en un solo mensaje
+    Serial.println("Recibido " + String(notificationValue));    
+  }
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}

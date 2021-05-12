@@ -1,0 +1,143 @@
+#include <Arduino.h>
+
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+//////////////////////////////////////////
+// Ejemplo con API
+//////////////////////////
+
+#include <HTTPClient.h>
+#include <WiFi.h>
+
+const char* ssid = "adrian";
+const char* password = "adrianva";
+
+xQueueHandle queue;
+
+void listenForHTTP(void *pvParameters);
+void EnviarDatos(void *pvParameters);
+String comunicacion(String m);
+
+void setup(){
+    //Se crean las tareas
+    Serial.begin(9600);
+    String m = "Posiblemente diabetico";
+    queue = xQueueCreate(2, sizeof(m)*2);
+    xTaskCreatePinnedToCore(
+    listenForHTTP
+    ,  "Espera el HTTP"   // A name just for humans
+    ,  1024*20  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    EnviarDatos
+    ,  "Envia los datos"   // A name just for humans
+    ,  1024*20  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  2  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+void EnviarDatos(void *pvParameters)
+{
+ (void) pvParameters;
+ String C[8];
+  while (true)
+  {            
+          for (int i=0 ; i<8; i++){
+            Serial.println("Escriba la carateristica "+String(i+1));  
+            while (Serial.available() == 0)  {
+                
+            }
+             C[i] = Serial.readString();
+          } 
+          String caracteristicas = "c1=" + C[0] + "&c2=" + C[1] +"&c3=" + C[2] + "&c4=" + C[3] + "&c5=" + C[4] + "&c6=" + C[5] + "&c7=" + C[6] + "&c8=" + C[7];
+          Serial.println(caracteristicas);
+          String mensaje = comunicacion(caracteristicas);    
+            long ok = xQueueSend(queue, &mensaje, 100 / portTICK_PERIOD_MS);
+            if(ok){
+                Serial.println("Caracteristicas envidas a la queue");
+            }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+  //vTaskDelete(NULL);
+}
+
+
+void listenForHTTP(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  { 
+    String rxInt;
+    if(xQueueReceive(queue, &rxInt , portMAX_DELAY))
+    {
+      Serial.println("LA respuesta del servidos es:   " + String(rxInt));
+    } else {
+       Serial.println("nope!!!");
+    }
+     vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+
+String comunicacion(String m)
+{
+    Serial.println("Conectando...");
+    WiFi.begin(ssid, password);
+    while (WiFi.status() != WL_CONNECTED) 
+    { //Check for the connection
+    delay(500);
+    }
+    Serial.println("Conectado con exito, mi IP es: " + (String)WiFi.localIP() + " Enviando ... ");;
+    if(WiFi.status()== WL_CONNECTED)
+    {   //Check WiFi connection status        
+        HTTPClient http;
+        String datos_a_enviar = m;
+        http.begin("https://adrianvh33-pruebaapi.zeet.app/predecir"); 
+        http.addHeader("Content-Type", "application/x-www-form-urlencoded"); //Preparamos el header text/plain si solo vamos a enviar texto plano sin un paradigma llave:valor.
+        
+        //int codigo_respuesta = http.GET();   //Enviamos el post pasándole, los datos que queremos enviar. (esta función nos devuelve un código que guardamos en un int)
+        int codigo_respuesta = http.POST(datos_a_enviar);
+        
+        if(codigo_respuesta>0)
+        {
+            Serial.println("Código HTTP ► " + String(codigo_respuesta));   //Print return code        
+            if(codigo_respuesta == 200)
+            {
+                String cuerpo_respuesta = http.getString();
+                //Serial.println("El servidor respondió ▼ ");
+                //Serial.println(cuerpo_respuesta);      
+                return cuerpo_respuesta;      
+            
+            }else
+            {
+            Serial.print("Error enviando POST, código: ");
+            Serial.println(codigo_respuesta);   
+            return "Error enviando POST, código: ";       
+            }
+            http.end();  //libero recursos
+        }else
+            {
+            Serial.println("Error en la conexión WIFI");
+            return "Error en la conexión WIFI";
+            }   
+    }    
+ return "algo salio mal";
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
+

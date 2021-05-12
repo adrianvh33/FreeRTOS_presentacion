@@ -1,0 +1,93 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// Mutex
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+xSemaphoreHandle mutexBus;
+
+void task1(void *pvParameters);
+void task2(void *pvParameters);
+void writeToBus(String message);
+
+void setup(){
+    //Se crean las tareas
+    Serial.begin(9600);
+    mutexBus = xSemaphoreCreateMutex(); // Se crea el simafore
+    xTaskCreatePinnedToCore(
+    task1
+    ,  "Lectura de temperatura"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    task2
+    ,  "Lectura de humedad"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+
+void writeToBus(String message)
+{
+  Serial.print(message);
+}
+
+void task1(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    Serial.print("Lectura de temperatura \n");
+    if (xSemaphoreTake(mutexBus, 1000 / portTICK_PERIOD_MS))
+    {
+      writeToBus("La temperatura es 25c\n");
+      xSemaphoreGive(mutexBus);
+    }
+    else
+    {
+      Serial.print("Escritura de temperatura timed out \n");
+    }
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+    
+  }
+}
+
+
+void task2(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    Serial.print("Lectura de humedad\n");
+    if (xSemaphoreTake(mutexBus, 1000 / portTICK_PERIOD_MS))
+    {
+      writeToBus("La humedad es 50 \n");
+      xSemaphoreGive(mutexBus);
+    }
+    else
+    {
+      Serial.print("Lectura de humedad timed out \n");
+    }
+    vTaskDelay(2000 / portTICK_PERIOD_MS);
+    
+  }
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}

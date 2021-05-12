@@ -1,0 +1,92 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// EventGroups
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+EventGroupHandle_t evtGrp;
+const int gotHttp = BIT0;
+const int gotBLE = BIT1;
+
+void listenForHTTP(void *pvParameters);
+void listenForBluetooth(void *pvParameters);
+void task1(void *pvParameters);
+
+void setup(){
+    Serial.begin(9600);
+    //Se crean las tareas
+     evtGrp = xEventGroupCreate();
+
+    xTaskCreatePinnedToCore(
+    listenForHTTP
+    ,  "get HTTP"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+    xTaskCreatePinnedToCore(
+    listenForBluetooth
+    ,  "get BLE"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    task1
+    ,  "Hacer algo con http"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+void listenForHTTP(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    xEventGroupSetBits(evtGrp, gotHttp);
+    Serial.println("got http");
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void listenForBluetooth(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    xEventGroupSetBits(evtGrp, gotBLE);
+    Serial.println("got BLE");
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void task1(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    xEventGroupWaitBits(evtGrp, gotHttp | gotBLE, true, true, portMAX_DELAY);
+    Serial.println("Recibido http y BLE");
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}

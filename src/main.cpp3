@@ -1,0 +1,78 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// binary_semaphore
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+xSemaphoreHandle binSemaphore;
+
+
+void listenForHTTP(void *pvParameters);
+void task1(void *pvParameters);
+
+void setup(){
+    //Se crean las tareas
+    Serial.begin(9600);
+    binSemaphore = xSemaphoreCreateBinary();
+    xTaskCreatePinnedToCore(
+    listenForHTTP
+    ,  "Espera el HTTP"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    task1
+    ,  "Tarea 1"   // A name just for humans
+    ,  1024  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+
+
+void listenForHTTP(void *pvParameters)
+{
+ (void) pvParameters;
+  while (true)
+  {
+    Serial.print("Mensaje HTTP recibido\n");
+    xSemaphoreGive(binSemaphore); // Se entrega el Semaphore
+    Serial.print("HTTP mensaje procesado\n");
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+
+void task1(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  {
+    if(xSemaphoreTake(binSemaphore, 6000 / portTICK_PERIOD_MS))
+    {
+      printf("Haciendo algo con http\n");
+    }
+    else
+    {
+       printf("time out\n");
+    }
+    
+  }
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}

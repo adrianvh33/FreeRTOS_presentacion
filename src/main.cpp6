@@ -1,0 +1,84 @@
+#include <Arduino.h>
+
+//////////////////////////////////////////
+// Queues
+//////////////////////////
+#if CONFIG_FREERTOS_UNICORE
+#define ARDUINO_RUNNING_CORE 0
+#else
+#define ARDUINO_RUNNING_CORE 1
+#endif
+
+xQueueHandle queue;
+
+void listenForHTTP(void *pvParameters);
+void task1(void *pvParameters);
+
+void setup(){
+    //Se crean las tareas
+    Serial.begin(9600);
+    queue = xQueueCreate(3, sizeof(int));
+    xTaskCreatePinnedToCore(
+    listenForHTTP
+    ,  "Espera el HTTP"   // A name just for humans
+    ,  1024*3  // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE); // lo corre en el core que esta usando arduino
+
+
+    xTaskCreatePinnedToCore(
+    task1
+    ,  "Tarea 1"   // A name just for humans
+    ,  1024*3 // This stack size can be checked & adjusted by reading the Stack Highwater
+    ,  NULL
+    ,  1  // Priority, with 3 (configMAX_PRIORITIES - 1) being the highest, and 0 being the lowest.
+    ,  NULL 
+    ,  ARDUINO_RUNNING_CORE);
+
+}
+
+
+void listenForHTTP(void *pvParameters)
+{
+ (void) pvParameters;
+ int count = 0;
+  while (true)
+  {
+    count++;
+    Serial.println("Mensaje HTTP recibido");
+    long ok = xQueueSend(queue, &count, 100 / portTICK_PERIOD_MS);
+    if(ok) 
+    {
+      Serial.println("Mensaje agregado a la queue");
+    } 
+    else 
+    {
+       Serial.println("Fallo agregar a queue");
+    }
+
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void task1(void *pvParameters)
+{
+  (void) pvParameters;
+  while (true)
+  { 
+    int rxInt;
+    if(xQueueReceive(queue, &rxInt , 5000 / portTICK_PERIOD_MS))
+    {
+      Serial.println("Haciendo algo con http " + String(rxInt));
+    } else {
+       Serial.println("nope!!!");
+    }
+     vTaskDelay(5000 / portTICK_PERIOD_MS);
+  }
+}
+
+void loop()
+{
+  // Empty. Things are done in Tasks.
+}
